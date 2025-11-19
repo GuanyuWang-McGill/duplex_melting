@@ -30,14 +30,15 @@ import numpy as np
 import pandas as pd
 from tkinter import Tk, filedialog
 from scipy import optimize
+import matplotlib.pyplot as plt
 
-# Experiment settings ------------------------------
+# Experiment settings --------------------------------------------------
 conc_ds               = 2.5e-6   # strand concentration (M) for bimolecular models; ignored if intramolecular
 is_intramolecular     = False    # True for hairpins (unimolecular)
 is_self_complementary = False    # True for self-complementary duplexes (homodimer)
-method                = "UV-vis" # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
+method                = "UV" # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
 
-# Fitting settings ---------------------------------
+# Fitting settings -----------------------------------------------------
 is_truncate           = False    # truncate only for qPCR data
 temp_truncate         = 30       # Truncate the data at Tm - temp_truncate
 fraction_init         = 0.10     # fraction (10%) of points at each end for baseline initial guesses
@@ -46,11 +47,11 @@ nm_options            = dict(maxiter=1e6,
                              xatol=1e-6,
                              fatol=1e-6
                              )   # Nelder-Mead minimization options
-# ------------------------------------------------
+# ----------------------------------------------------------------------
 
 R = 8.314  # ideal gas constant in J/(mol·K)
 
-# Define thermodynamic parameters-----------------
+# Define thermodynamic parameters---------------------------------------
 @dataclass
 class ThermoParams:
     delta_h: float   # change in enthalpy (J/mol)
@@ -60,8 +61,8 @@ class ThermoParams:
     b_ss: float      # Y-intercept of the linear baseline of the unfolded state
     m_ss: float      # slope of the linear baseline of the unfolded state
 
-# Functions --------------------------------------
-# Biophysical Models -----------------------------
+# Functions ------------------------------------------------------------
+# Biophysical Models ---------------------------------------------------
 def calc_ka(temp: np.ndarray, params: ThermoParams) -> np.ndarray:
     """
     Calculate the association constant Ka
@@ -172,7 +173,7 @@ def calc_tm_estimate(temp: np.ndarray,
     return float(temp[np.argmax(np.abs(derivative))])
 
 
-# Fitting Algorithm -----------------------------
+# Fitting Algorithm ----------------------------------------------------
 def merit_rsp(params_fit: ThermoParams,
               temp: np.ndarray,
               conc: float,
@@ -205,7 +206,7 @@ def merit_rsp_deriv(params_fit: ThermoParams,
     return float(np.nansum(resid**2))
 
 
-# Other Helper Functions--------------------------
+# Other Helper Functions------------------------------------------------
 def params_from_array(param_array: np.ndarray) -> ThermoParams:
     """
     Map a flat parameter vector to ThermoParams.
@@ -217,8 +218,103 @@ def params_from_array(param_array: np.ndarray) -> ThermoParams:
     return ThermoParams(delta_h, delta_s, b_ds, m_ds, b_ss, m_ss)
 
 
-# File Handling-----------------------------------
-# Open a CSV file---------------------------------
+def plot_overlay(temp_c: np.ndarray,
+                 y_exp: np.ndarray,
+                 y_fit: np.ndarray,
+                 residual: np.ndarray,
+                 title: str,
+                 ylabel: str,
+                 method: str,
+                 data_type: str,
+                 out_path: str,
+                 ) -> None:
+    """
+    Make a 2-panel PNG:
+      - top: experimental (open circles) vs fitted (line)
+      - bottom: residuals (fit - exp)
+
+    bottom_height_ratio: fraction of total height used for the residual panel
+                         e.g., 0.3 = bottom is 30%, top is 70%
+    """
+
+    # Create a figure
+    fig = plt.figure(figsize=(6, 6))
+
+    # Ratio: top gets (1 - bottom_ratio), bottom gets bottom_ratio
+    bottom_height_ratio = 0.15
+    gs = plt.GridSpec(2, 1,
+                      height_ratios=[1 - bottom_height_ratio, bottom_height_ratio]
+                      )
+
+    ax = fig.add_subplot(gs[0])
+    axr = fig.add_subplot(gs[1], sharex=ax)
+
+    # -------- top panel --------
+    ax.plot(temp_c, y_exp,
+            linestyle="none",
+            marker="o",
+            markersize=4,
+            markerfacecolor="none",
+            markeredgecolor="red",
+            label="Experimental Data"
+            )
+
+    ax.plot(temp_c, y_fit,
+            linestyle="-", linewidth=1.3,
+            color="black",
+            label="Fitted Curve"
+            )
+
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(loc="best", frameon=False)
+    ax.grid(False)
+
+    # No inner grid, black borders
+    for spine in ax.spines.values():
+        spine.set_color("black")
+
+    # Hide tick labels and axis label
+    ax.tick_params(labelbottom=False)  # hide tick labels on top plot
+    ax.xaxis.label.set_visible(False)  # hide x-axis label on top plot
+
+    # -------- bottom panel --------
+    axr.plot(temp_c, residual,
+             linestyle="none",
+             marker="o", markersize=4,
+             markerfacecolor="none",
+             markeredgecolor="red"
+             )
+
+    axr.axhline(0, color="black", lw=0.8, ls="--")
+    axr.set_xlabel("Temperature (°C)")
+    axr.set_ylabel("Residual")
+    axr.grid(False)
+    for spine in axr.spines.values():
+        spine.set_color("black")
+
+    # Set the Y axis of the residual plots
+    if data_type == "direct":
+        if "uv" in method.casefold():
+            axr.set_yticks([-0.004, 0, 0.004])
+        elif "qpcr" in method.casefold():
+            axr.set_yticks([-1000, 0, 1000])
+    elif data_type == "derivative":
+        if "uv" in method.casefold():
+            axr.set_yticks([-0.001, 0, 0.001])
+        elif "qpcr" in method.casefold():
+            axr.set_yticks([-500, 0, 500])
+
+
+    axr.set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    fig.tight_layout()
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=300)
+    plt.close(fig)
+
+# File Handling---------------------------------------------------------
+# Open a CSV file-------------------------------------------------------
 # root = Tk()
 # root.withdraw()  # Hide the root window
 # file_path = filedialog.askopenfilename(
@@ -231,14 +327,14 @@ def params_from_array(param_array: np.ndarray) -> ThermoParams:
 #     print("No file selected!")
 #     exit()
 
-file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
-# file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
-# Extract filename--------------------------------
+#file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
+file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
+# Extract filename------------------------------------------------------
 dir_name = os.path.dirname(file_path)
 file_base = os.path.splitext(os.path.basename(file_path))[0]
 print(f"File name: {file_base}")
 
-# Read CSV into a DataFrame ----------------------
+# Read CSV into a DataFrame --------------------------------------------
 tbl = pd.read_csv(file_path)
 
 # Get column names
@@ -270,13 +366,12 @@ for index, value in enumerate(data_columns):
 n_curves = rsp_all.shape[1]
 n_temp = len(temp_kelvin)
 
-# Prepare output files ---------------------------
+# Prepare output files -------------------------------------------------
 curves_out = {"Temperature": temp_celsius.copy()}
 params_rows = []
-
 fig_dir = os.path.join(dir_name, "figures")
 
-# Fit each curve ---------------------------------
+# Fit each curve -------------------------------------------------------
 for i in range(n_curves):
 
     # Experimental data for this column
@@ -287,7 +382,7 @@ for i in range(n_curves):
 
     # Tm estimation from derivative
     tm_estim = np.round(calc_tm_estimate(temp_kelvin, rsp_exp), decimals=1)
-    print(tm_estim - 273.15)
+
     # Determine the range of the lower temperature baseline
     # Lower temperature baseline of qPCR drifts significantly
     # Only fit the data in the temperature range of
@@ -311,7 +406,7 @@ for i in range(n_curves):
     k_end = int(round(fraction_init * n))
     m_ds_init, b_ds_init = np.polyfit(temp_sliced[:k_end], rsp_sliced[:k_end], deg=1)
     m_ss_init, b_ss_init = np.polyfit(temp_sliced[n - k_end:], rsp_sliced[n - k_end:], deg=1)
-    print(m_ds_init, b_ds_init, m_ss_init, b_ss_init)
+
     # Initial thermodynamic parameters (association: ΔH<0, ΔS<0)
     delta_h_init = -200.0e3  # J/mol
     delta_s_init = -600.0   # J/mol/K
@@ -319,7 +414,7 @@ for i in range(n_curves):
     # Fitting directly to the response curve----------------------------
     # Initial parameters:
     params_init = np.asarray([ delta_h_init, delta_s_init, b_ds_init, m_ds_init, b_ss_init, m_ss_init], dtype=float)
-    print(params_init)
+
     res = optimize.minimize(merit_rsp,
                             params_init,
                             args=(temp_sliced, conc_ds, rsp_sliced),
@@ -334,6 +429,7 @@ for i in range(n_curves):
 
     # Tm from fitted dH, dS, and C
     tm_anal_direct = np.round(calc_tm_anal(conc_ds, params_rsp), decimals=1)
+    tm_anal_direct_celsius = np.round(tm_anal_direct -273.15, decimals=1)
 
     # ----- Pad fitted/residual back to full length with NaNs so columns align -----
     rsp_fit_full = np.full_like(temp_kelvin, np.nan, dtype=float)
@@ -362,8 +458,9 @@ for i in range(n_curves):
 
     # Tm from fitted dH, dS, and C (derivative fit)
     tm_anal_deriv = np.round(calc_tm_anal(conc_ds, params_deriv), decimals=1)
+    tm_anal_deriv_celsius = np.round(tm_anal_deriv -273.15, decimals=1)
 
-    # ----- Pad fitted/residual back to full length with NaNs so columns align -----
+    # Pad fitted/residual back to full length with NaNs so columns align
     rsp_deriv_fit_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     residual_deriv_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     rsp_deriv_fit_full[idx_start:] = rsp_deriv_fit_sliced
@@ -379,12 +476,12 @@ for i in range(n_curves):
     curves_out[f"{well_ID[i]}_deriv_fitted"] = rsp_deriv_fit_full
     curves_out[f"{well_ID[i]}_deriv_residual"] = residual_deriv_full
 
-    # --- Parameter row
+    # Parameter row
     params_rows.append({
         "curve_id": str(well_ID[i]),
         "DeltaH_anal_direct (kJ/mol)": float(np.round(params_rsp.delta_h / 1000, decimals=1)),
         "DeltaS_anal_direct (J/mol/K)": float(np.round(params_rsp.delta_s, decimals=1)),
-        "Tm_anal_direct (C)": float(np.round(tm_anal_direct - 273.15, decimals=1)) if np.isfinite(tm_anal_direct) else np.nan,
+        "Tm_anal_direct (C)": tm_anal_direct_celsius if np.isfinite(tm_anal_direct) else np.nan,
         "RSS_direct": rss_direct,
         "b_ds": params_rsp.b_ds,
         "m_ds": params_rsp.m_ds,
@@ -392,10 +489,53 @@ for i in range(n_curves):
         "m_ss": params_rsp.m_ss,
         "DeltaH_anal_deriv (kJ/mol)": float(np.round(params_deriv.delta_h / 1000, decimals=1)),
         "DeltaS_anal_deriv (J/mol/K)": float(np.round(params_deriv.delta_s, decimals=1)),
-        "Tm_anal_deriv (C)": float(np.round(tm_anal_deriv - 273.15, decimals=1)) if np.isfinite(tm_anal_deriv) else np.nan,
+        "Tm_anal_deriv (C)": tm_anal_deriv_celsius if np.isfinite(tm_anal_deriv_celsius) else np.nan,
         "RSS_deriv": rss_deriv,
         "Tm_estim (C)": float(np.round(tm_estim - 273.15, decimals=1)) if np.isfinite(tm_estim) else np.nan,
         })
+
+    # Output the plots--------------------------------------------------
+    if "uv" in method.casefold():
+        ylabel = "Absorbance (AU)"
+        ylabel_short = "AU"
+    elif "qpcr" in method.casefold():
+        ylabel = "Fluorescence (RFU)"
+        ylabel_short = "RFU"
+    else:
+        ylabel = "Response"
+        ylabel_short = "Response"
+
+    # Response fit figure
+    out_png_resp = os.path.join(fig_dir,
+                                f"{file_base}_{well_ID[i]}_response_fit.png"
+                                )
+
+    plot_overlay(temp_c=temp_celsius,
+                 y_exp=rsp_exp,
+                 y_fit=rsp_fit_full,
+                 residual=residual_full,
+                 title=f"{well_ID[i]}: Direct Fit",
+                 ylabel=ylabel,
+                 method=method,
+                 data_type="direct",
+                 out_path=out_png_resp
+                 )
+
+    # Derivative fit figure
+    out_png_deriv = os.path.join(fig_dir,
+                                 f"{file_base}_{well_ID[i]}_derivative_fit.png"
+                                 )
+
+    plot_overlay(temp_c=temp_celsius,
+                 y_exp=rsp_deriv,
+                 y_fit=rsp_deriv_fit_full,
+                 residual=residual_deriv_full,
+                 title=f"{well_ID[i]}: Derivative Fit ",
+                 ylabel=f"d{ylabel_short}/dT",
+                 method=method,
+                 data_type="derivative",
+                 out_path=out_png_deriv
+                 )
 
 # ---------- Write outputs ----------
 curves_df  = pd.DataFrame(curves_out)
@@ -414,6 +554,6 @@ curves_df.to_csv(curves_out_path, index=False)
 params_df.to_csv(params_out_path, index=False)
 
 print("Done.")
-print("Wrote:")
-print("  ", curves_out_path)
-print("  ", params_out_path)
+print("Curves:     ", curves_out_path)
+print("Parameters: ", params_out_path)
+print("Figures:    ", fig_dir)
