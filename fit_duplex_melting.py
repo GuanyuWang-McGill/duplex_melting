@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 conc_ds               = 2.5e-6   # strand concentration (M) for bimolecular models; ignored if intramolecular
 is_intramolecular     = False    # True for hairpins (unimolecular)
 is_self_complementary = False    # True for self-complementary duplexes (homodimer)
-method                = "UV" # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
+method                = "qPCR-EG" # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
 
 # Fitting settings -----------------------------------------------------
 is_truncate           = False    # truncate only for qPCR data
@@ -253,26 +253,35 @@ def plot_overlay(temp_c: np.ndarray,
     ax.plot(temp_c, y_exp,
             linestyle="none",
             marker="o",
-            markersize=4,
+            markersize=6,
             markerfacecolor="none",
-            markeredgecolor="red",
+            markeredgecolor="#EA5958",
             label="Experimental Data"
             )
 
     ax.plot(temp_c, y_fit,
-            linestyle="-", linewidth=1.3,
+            linestyle="-", linewidth=2,
             color="black",
-            label="Fitted Curve"
+            label="Fitted Curve",
             )
 
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.legend(loc="best", frameon=False)
-    ax.grid(False)
+    ax.set_ylabel(ylabel, fontsize=16, fontweight="bold")
+    ax.set_title(title, fontsize=16, fontweight="bold")
 
-    # No inner grid, black borders
+    # Legend
+    ax.legend(loc="best", frameon=False, fontsize=12)
+
+    # Axes styling
+    ax.grid(False)
+    ax.tick_params(axis="both", labelsize=10, width=2)
+
     for spine in ax.spines.values():
         spine.set_color("black")
+        spine.set_linewidth(2)
+
+    # make tick numbers bold
+    for lbl in ax.get_xticklabels() + ax.get_yticklabels():
+        lbl.set_fontweight("bold")
 
     # Hide tick labels and axis label
     ax.tick_params(labelbottom=False)  # hide tick labels on top plot
@@ -281,17 +290,25 @@ def plot_overlay(temp_c: np.ndarray,
     # -------- bottom panel --------
     axr.plot(temp_c, residual,
              linestyle="none",
-             marker="o", markersize=4,
+             marker="o", markersize=6,
              markerfacecolor="none",
-             markeredgecolor="red"
+             markeredgecolor="#EA5958"
              )
 
-    axr.axhline(0, color="black", lw=0.8, ls="--")
-    axr.set_xlabel("Temperature (°C)")
-    axr.set_ylabel("Residual")
+    axr.axhline(0, color="black", lw=1, ls="--")
+    axr.set_xlabel("Temperature (°C)", fontsize=16, fontweight="bold")
+    axr.set_ylabel("Residual", fontsize=16, fontweight="bold")
+
+    # Axes styling
     axr.grid(False)
+    axr.tick_params(axis="both", labelsize=10, width=2)
     for spine in axr.spines.values():
         spine.set_color("black")
+        spine.set_linewidth(2)
+
+    # make tick numbers bold
+    for lbl in axr.get_xticklabels() + axr.get_yticklabels():
+        lbl.set_fontweight("bold")
 
     # Set the Y axis of the residual plots
     if data_type == "direct":
@@ -304,7 +321,6 @@ def plot_overlay(temp_c: np.ndarray,
             axr.set_yticks([-0.001, 0, 0.001])
         elif "qpcr" in method.casefold():
             axr.set_yticks([-500, 0, 500])
-
 
     axr.set_xticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
     fig.tight_layout()
@@ -327,8 +343,8 @@ def plot_overlay(temp_c: np.ndarray,
 #     print("No file selected!")
 #     exit()
 
-#file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
-file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
+file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
+#file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
 # Extract filename------------------------------------------------------
 dir_name = os.path.dirname(file_path)
 file_base = os.path.splitext(os.path.basename(file_path))[0]
@@ -396,6 +412,7 @@ for i in range(n_curves):
 
     # Slice the array to truncate the data
     temp_sliced = temp_kelvin[idx_start:]
+    temp_sliced_celsius = temp_sliced - 273.15 # This is for plotting
     rsp_sliced = rsp_exp[idx_start:]
     rsp_deriv_sliced = rsp_deriv[idx_start:]
 
@@ -435,7 +452,8 @@ for i in range(n_curves):
     rsp_fit_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     residual_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     rsp_fit_full[idx_start:] = rsp_fit_sliced
-    residual_full[idx_start:] = (rsp_fit_sliced - rsp_sliced)
+    residual_sliced = rsp_fit_sliced - rsp_sliced
+    residual_full[idx_start:] = residual_sliced
 
     # TODO: Baselines (for diagnostic purpose)
     baseline_ds = params_rsp.b_ds + params_rsp.m_ds*temp_kelvin
@@ -464,7 +482,8 @@ for i in range(n_curves):
     rsp_deriv_fit_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     residual_deriv_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     rsp_deriv_fit_full[idx_start:] = rsp_deriv_fit_sliced
-    residual_deriv_full[idx_start:] = (rsp_deriv_fit_sliced - rsp_deriv_sliced)
+    residual_deriv_sliced = rsp_deriv_fit_sliced - rsp_deriv_sliced
+    residual_deriv_full[idx_start:] = residual_deriv_sliced
 
     # Assemble wide outputs
     curves_out[f"{well_ID[i]}_exp"] = rsp_exp
@@ -507,13 +526,13 @@ for i in range(n_curves):
 
     # Response fit figure
     out_png_resp = os.path.join(fig_dir,
-                                f"{file_base}_{well_ID[i]}_response_fit.png"
+                                f"{file_base}_{well_ID[i]}_direct_fit.png"
                                 )
 
-    plot_overlay(temp_c=temp_celsius,
-                 y_exp=rsp_exp,
-                 y_fit=rsp_fit_full,
-                 residual=residual_full,
+    plot_overlay(temp_c=temp_sliced_celsius,
+                 y_exp=rsp_sliced,
+                 y_fit=rsp_fit_sliced,
+                 residual=residual_sliced,
                  title=f"{well_ID[i]}: Direct Fit",
                  ylabel=ylabel,
                  method=method,
@@ -526,10 +545,10 @@ for i in range(n_curves):
                                  f"{file_base}_{well_ID[i]}_derivative_fit.png"
                                  )
 
-    plot_overlay(temp_c=temp_celsius,
-                 y_exp=rsp_deriv,
-                 y_fit=rsp_deriv_fit_full,
-                 residual=residual_deriv_full,
+    plot_overlay(temp_c=temp_sliced_celsius,
+                 y_exp=rsp_deriv_sliced,
+                 y_fit=rsp_deriv_fit_sliced,
+                 residual=residual_deriv_sliced,
                  title=f"{well_ID[i]}: Derivative Fit ",
                  ylabel=f"d{ylabel_short}/dT",
                  method=method,
