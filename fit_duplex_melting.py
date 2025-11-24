@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 conc_ds               = 2.5e-6   # strand concentration (M) for bimolecular models; ignored if intramolecular
 is_intramolecular     = False    # True for hairpins (unimolecular)
 is_self_complementary = False    # True for self-complementary duplexes (homodimer)
-method                = "qPCR-EG" # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
+method                = str(input("What is the method used for the measurement (UV or qPCR): "))   # What method (UV-Vis, qPCR) and dye (SG, EG) have been used
 
 # Fitting settings -----------------------------------------------------
 is_truncate           = False    # truncate only for qPCR data
@@ -249,13 +249,21 @@ def plot_overlay(temp_c: np.ndarray,
     ax = fig.add_subplot(gs[0])
     axr = fig.add_subplot(gs[1], sharex=ax)
 
+    # Setup colours of the plot. UV-Vis is red, qPCR is green
+    if "uv" in method.casefold():
+        colour = '#EA5958' # Red
+    elif "qpcr" in method.casefold():
+        colour = '#B1D095' # Green
+    else:
+        colour = '#6699FF' # Blue
+
     # -------- top panel --------
     ax.plot(temp_c, y_exp,
             linestyle="none",
             marker="o",
             markersize=6,
             markerfacecolor="none",
-            markeredgecolor="#EA5958",
+            markeredgecolor=colour,
             label="Experimental Data"
             )
 
@@ -292,7 +300,7 @@ def plot_overlay(temp_c: np.ndarray,
              linestyle="none",
              marker="o", markersize=6,
              markerfacecolor="none",
-             markeredgecolor="#EA5958"
+             markeredgecolor=colour
              )
 
     axr.axhline(0, color="black", lw=1, ls="--")
@@ -331,19 +339,19 @@ def plot_overlay(temp_c: np.ndarray,
 
 # File Handling---------------------------------------------------------
 # Open a CSV file-------------------------------------------------------
-# root = Tk()
-# root.withdraw()  # Hide the root window
-# file_path = filedialog.askopenfilename(
-#     filetypes=[("CSV files", "*.csv")],
-#     title="Select a file containing melting curves"
-# )
-# root.destroy()
-#
-# if not file_path:
-#     print("No file selected!")
-#     exit()
+root = Tk()
+root.withdraw()  # Hide the root window
+file_path = filedialog.askopenfilename(
+    filetypes=[("CSV files", "*.csv")],
+    title="Select a file containing melting curves"
+)
+root.destroy()
 
-file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
+if not file_path:
+    print("No file selected!")
+    exit()
+
+#file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
 #file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
 # Extract filename------------------------------------------------------
 dir_name = os.path.dirname(file_path)
