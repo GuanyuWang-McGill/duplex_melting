@@ -97,12 +97,6 @@ def calc_rsp_deriv(temp: np.ndarray,
             * (params.delta_h / (R * temp ** 2))
             * (frac_fold / np.sqrt(1 + 4 * ka * conc )))
 
-    # This function uses a quadratic baseline
-    # return (2* params.m_ds * temp + (params.m_ss - 2 * params.m_ds * temp) * (1 - frac_fold)
-    #         - ((params.b_ss - params.b_ds) + (params.m_ss - 2 * params.m_ds * temp) * temp)
-    #         * (params.delta_h / (R * temp ** 2))
-    #         * (frac_fold / np.sqrt(1 + 4 * ka * conc)))
-
 
 def calc_tm_anal(conc: float,
                  params: ThermoParams,
@@ -157,3 +151,24 @@ def calc_rsp_quad(temp: np.ndarray,
     # This is the quadratic baseline
     return (params.b_ds + params.m_ds * temp ** 2 + (1- frac_fold)
             * (params.b_ss - params.b_ds + (params.m_ss - params.m_ds * temp) * temp))
+
+def calc_rsp_deriv_quad(temp: np.ndarray,
+                   conc: float,
+                   params: ThermoParams,
+                   is_intramolecular = False,
+                   is_self_complementary = False
+                   ) -> np.ndarray:
+    """
+    Take the `temperature` and `params` to simulate the first derivative
+    of response of the machine (RFU or Abs) of duplex melting
+    :return: derivative of the response with respect to T
+    """
+    frac_fold = calc_frac_fold(temp, conc, params, is_intramolecular, is_self_complementary)
+
+    ka = calc_ka(temp, params)
+
+    # This function uses a quadratic baseline
+    return (2* params.m_ds * temp + (params.m_ss - 2 * params.m_ds * temp) * (1 - frac_fold)
+            - ((params.b_ss - params.b_ds) + (params.m_ss - 2 * params.m_ds * temp) * temp)
+            * (params.delta_h / (R * temp ** 2))
+            * (frac_fold / np.sqrt(1 + 4 * ka * conc)))
