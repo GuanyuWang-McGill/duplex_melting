@@ -3,7 +3,8 @@ import numpy as np
 
 from biophysical_models import (ThermoParams,
                                 calc_rsp,
-                                calc_rsp_deriv)
+                                calc_rsp_deriv
+                                )
 
 # Fitting Algorithm ----------------------------------------------------
 def merit_rsp(params_fit: ThermoParams,

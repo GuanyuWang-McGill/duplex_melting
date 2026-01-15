@@ -116,8 +116,12 @@ def calc_rsp(temp: np.ndarray,
     """
     frac_fold = calc_frac_fold(temp, conc, params)
 
-    return (params.b_ds + params.m_ds * temp + (1- frac_fold)
-            * (params.b_ss - params.b_ds + (params.m_ss - params.m_ds) * temp))
+    # return (params.b_ds + params.m_ds * temp + (1- frac_fold)
+    #         * (params.b_ss - params.b_ds + (params.m_ss - params.m_ds) * temp))
+
+    # This is the quadratic baseline
+    return (params.b_ds + params.m_ds * temp ** 2 + (1- frac_fold)
+            * (params.b_ss - params.b_ds + (params.m_ss - params.m_ds * temp) * temp))
 
 
 def calc_rsp_deriv(temp: np.ndarray,
@@ -133,10 +137,16 @@ def calc_rsp_deriv(temp: np.ndarray,
 
     ka = calc_ka(temp, params)
 
-    return (params.m_ds + (params.m_ss - params.m_ds) * (1 - frac_fold)
-            - ((params.b_ss - params.b_ds) + (params.m_ss - params.m_ds) * temp)
+    # return (params.m_ds + (params.m_ss - params.m_ds) * (1 - frac_fold)
+    #         - ((params.b_ss - params.b_ds) + (params.m_ss - params.m_ds) * temp)
+    #         * (params.delta_h / (R * temp ** 2))
+    #         * (frac_fold / np.sqrt(1 + 4 * ka * conc )))
+
+    # This function uses a quadratic baseline
+    return (2* params.m_ds * temp + (params.m_ss - 2 * params.m_ds * temp) * (1 - frac_fold)
+            - ((params.b_ss - params.b_ds) + (params.m_ss - 2 * params.m_ds * temp) * temp)
             * (params.delta_h / (R * temp ** 2))
-            * (frac_fold / np.sqrt(1 + 4 * ka * conc )))
+            * (frac_fold / np.sqrt(1 + 4 * ka * conc)))
 
 
 def calc_tm_anal(conc: float,

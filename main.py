@@ -28,26 +28,29 @@ from biophysical_models import (ThermoParams,
                                 calc_rsp,
                                 calc_rsp_deriv
                                 )
-from fitting import merit_rsp, merit_rsp_deriv, params_from_array
+from fitting import (merit_rsp,
+                     merit_rsp_deriv,
+                     params_from_array
+                     )
 from plotting import plot_overlay
 
 # File Handling---------------------------------------------------------
 # Open a CSV file-------------------------------------------------------
-# root = Tk()
-# root.withdraw()  # Hide the root window
-# file_path = filedialog.askopenfilename(
-#     filetypes=[("CSV files", "*.csv")],
-#     title="Select a file containing melting curves"
-# )
-# root.destroy()
-#
-# if not file_path:
-#     print("No file selected!")
-#     exit()
+root = Tk()
+root.withdraw()  # Hide the root window
+file_path = filedialog.askopenfilename(
+    filetypes=[("CSV files", "*.csv")],
+    title="Select a file containing melting curves"
+)
+root.destroy()
+
+if not file_path:
+    print("No file selected!")
+    exit()
 
 # Example files
-#file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
-file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
+# file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_EG_2.5uM.csv"
+# file_path = "/Users/guanyuwang/IdeaProjects/Fitting_algorithms/fit_duplex_melting/T-NP_UV_2.5uM.csv"
 
 # Experiment settings --------------------------------------------------
 conc_ds               = 2.5e-6   # strand concentration (M) for bimolecular models; ignored if intramolecular
@@ -139,7 +142,7 @@ for i in range(n_curves):
     # Initial baselines from ends (low T ~ ds; high T ~ ss)
     n = len(temp_sliced)
 
-    # take the first and last 10% of data points for initial baselines
+    # Take the first and last `fraction_init`% of data points for initial baselines
     k_end = int(round(fraction_init * n))
     m_ds_init, b_ds_init = np.polyfit(temp_sliced[:k_end], rsp_sliced[:k_end], deg=1)
     m_ss_init, b_ss_init = np.polyfit(temp_sliced[n - k_end:], rsp_sliced[n - k_end:], deg=1)
@@ -168,7 +171,7 @@ for i in range(n_curves):
     tm_anal_direct = np.round(calc_tm_anal(conc_ds, params_rsp), decimals=1)
     tm_anal_direct_celsius = np.round(tm_anal_direct -273.15, decimals=1)
 
-    # ----- Pad fitted/residual back to full length with NaNs so columns align -----
+    # Pad fitted/residual back to full length with NaNs so columns align
     rsp_fit_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     residual_full = np.full_like(temp_kelvin, np.nan, dtype=float)
     rsp_fit_full[idx_start:] = rsp_fit_sliced
@@ -205,16 +208,6 @@ for i in range(n_curves):
     residual_deriv_sliced = rsp_deriv_fit_sliced - rsp_deriv_sliced
     residual_deriv_full[idx_start:] = residual_deriv_sliced
 
-    # Assemble wide outputs
-    curves_out[f"{well_ID[i]}_exp"] = rsp_exp
-    curves_out[f"{well_ID[i]}_fitted"]   = rsp_fit_full
-    curves_out[f"{well_ID[i]}_residual"] = residual_full
-    curves_out[f"{well_ID[i]}_baseline_ds"] = baseline_ds
-    curves_out[f"{well_ID[i]}_baseline_ss"] = baseline_ss
-    curves_out[f"{well_ID[i]}_deriv"] = rsp_deriv
-    curves_out[f"{well_ID[i]}_deriv_fitted"] = rsp_deriv_fit_full
-    curves_out[f"{well_ID[i]}_deriv_residual"] = residual_deriv_full
-
     # Parameter row
     params_rows.append({
         "curve_id": str(well_ID[i]),
@@ -230,8 +223,20 @@ for i in range(n_curves):
         "DeltaS_anal_deriv (J/mol/K)": float(np.round(params_deriv.delta_s, decimals=1)),
         "Tm_anal_deriv (C)": tm_anal_deriv_celsius if np.isfinite(tm_anal_deriv_celsius) else np.nan,
         "RSS_deriv": rss_deriv,
-        "Tm_estim (C)": float(np.round(tm_estim - 273.15, decimals=1)) if np.isfinite(tm_estim) else np.nan,
-        })
+        "Tm_estim (C)": float(np.round(tm_estim - 273.15, decimals=0)) if np.isfinite(tm_estim) else np.nan,
+    })
+
+    # Assemble wide outputs
+    curves_out[f"{well_ID[i]}_exp"] = rsp_exp
+    curves_out[f"{well_ID[i]}_fitted"]   = rsp_fit_full
+    curves_out[f"{well_ID[i]}_residual"] = residual_full
+    # TODO: Baselines (for diagnostic purpose)
+    curves_out[f"{well_ID[i]}_baseline_ds"] = baseline_ds
+    curves_out[f"{well_ID[i]}_baseline_ss"] = baseline_ss
+    curves_out[f"{well_ID[i]}_deriv"] = rsp_deriv
+    curves_out[f"{well_ID[i]}_deriv_fitted"] = rsp_deriv_fit_full
+    curves_out[f"{well_ID[i]}_deriv_residual"] = residual_deriv_full
+    ####################################################################
 
     # Output the plots--------------------------------------------------
     if "uv" in method.casefold():
