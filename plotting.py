@@ -42,7 +42,7 @@ def plot_overlay(temp_c: np.ndarray,
     else:
         colour = '#6699FF' # Blue
 
-    # -------- top panel --------
+    # Top panel --------------------------------------------------------
     ax.plot(temp_c, y_exp,
             linestyle="none",
             marker="o",
@@ -80,7 +80,7 @@ def plot_overlay(temp_c: np.ndarray,
     ax.tick_params(labelbottom=False)  # hide tick labels on top plot
     ax.xaxis.label.set_visible(False)  # hide x-axis label on top plot
 
-    # -------- bottom panel --------
+    # Bottom panel -----------------------------------------------------
     axr.plot(temp_c, residual,
              linestyle="none",
              marker="o", markersize=6,

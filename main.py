@@ -251,7 +251,7 @@ for i in range(n_curves):
 
     # Response fit figure
     out_png_resp = os.path.join(fig_dir,
-                                f"{file_base}_{well_ID[i]}_{method}_direct_fit.png"
+                                f"{well_ID[i]}_{method}_direct_fit.png"
                                 )
 
     plot_overlay(temp_c=temp_sliced_celsius,
@@ -267,7 +267,7 @@ for i in range(n_curves):
 
     # Derivative fit figure
     out_png_deriv = os.path.join(fig_dir,
-                                 f"{file_base}_{well_ID[i]}_{method}_derivative_fit.png"
+                                 f"{well_ID[i]}_{method}_derivative_fit.png"
                                  )
 
     plot_overlay(temp_c=temp_sliced_celsius,
